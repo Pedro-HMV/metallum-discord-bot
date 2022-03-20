@@ -1,0 +1,5 @@
+.env
+pyrightconfig.json
+/.idea
+/.idea/*
+.vscode/*
