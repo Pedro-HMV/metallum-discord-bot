@@ -3,3 +3,4 @@ pyrightconfig.json
 /.idea
 /.idea/*
 .vscode/*
+venv/*
