@@ -4,3 +4,4 @@ pyrightconfig.json
 /.idea/*
 .vscode/*
 venv/*
+discord.log
