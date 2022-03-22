@@ -5,8 +5,8 @@ import logging
 from typing import NoReturn
 
 import discord
-from discord import Option
-from discord.ext import commands
+
+from discord import ChannelType as ct, Option
 from discord.utils import escape_markdown
 
 import metallum
@@ -25,11 +25,12 @@ logger.addHandler(handler)
 BOT_TOKEN = config("BOT_TOKEN")
 BASE_URL = "https://metal-archives.com/"
 BAND_SEP = "\n\n" + "*" * 30 + "\n\n"
-DM = ["private", "group"]
+DM = [ct.private, ct.group]
+TEST_GUILDS = [879867345475076147]
 
 
 class Band:
-    def __init__(self, band, albums):
+    def __init__(self, band: metallum.Band, albums=True):
         escaped_band = self.escape_band(band)
         self.name: str = escaped_band["name"]
         # print(self.name)
@@ -113,79 +114,85 @@ class Search:
         pass
 
 
-class MyClient(discord.Client):
-    bot = commands.Bot()
+bot = discord.Bot()
 
-    async def on_ready(self):
-        print("Logged on as {0}!".format(self.user))
-        print(
-            f"Running on {self.get_guild(470069814916808704)} and"
-            f" {self.get_guild(879867345475076147)}"
-        )
 
-    @bot.slash_command(guild_ids=["470069814916808704", "879867345475076147"])
-    async def metallum(
-        self,
-        ctx: commands.context,
-        query: Option(str, "The search you wanna perform", required=True),
-        exact: Option(
-            bool,
-            description=(
-                "Wether the search results should match the exact query."
-                " Default is 'yes'."
-            ),
-            default=True,
+@bot.event
+async def on_ready():
+    print("Logged on as {0}!".format(bot.user))
+    print(f"Running on {[bot.get_guild(int(id)) for id in TEST_GUILDS]}")
+
+
+@bot.slash_command(guild_ids=TEST_GUILDS, name="test")
+async def testing(ctx: discord.ApplicationContext):
+    await ctx.respond("I'm working")
+
+
+@bot.slash_command(guild_ids=TEST_GUILDS, name="metallum")
+async def metallum_search(
+    ctx: discord.ApplicationContext,
+    query: Option(str, "The search you wanna perform", required=True),
+    exact: Option(
+        bool,
+        description=(
+            "Wether the search results should match the exact query."
+            " Default is 'yes'."
         ),
-        albums: Option(
-            bool,
-            "Wether to display the bands' full-length albums in the results.",
-            default=True,
-        ),
-    ):
-        print("Start of the search")
-        if ctx.channel.type not in DM:
-            try:
-                send_to = await ctx.message.create_thread(
-                    f"{ctx.message}",
-                    auto_archive_duration=30,
+        default=True,
+    ),
+    albums: Option(
+        bool,
+        "Wether to display the bands' full-length albums in the results.",
+        default=True,
+    ),
+):
+    if ctx.interaction.channel.type not in DM:
+        try:
+            send_to = await ctx.interaction.channel.create_thread(
+                name=f"/{ctx.command.qualified_name}",
+                type=ct.public_thread,
+                auto_archive_duration=30,
+            )
+            await send_to.send(
+                content=(
+                    f"Band Search: {ctx.command.qualified_name}\nInitiated by:"
+                    f" {ctx.author}\n\nStandby for results!  \U0001F916"
                 )
-                await send_to.send(
-                    content=(
-                        f"Band Search: {query}\nInitiated by:"
-                        f" {ctx.author}\n\nStandby for results!  \U0001F916"
-                    )
-                )
-            except (
-                discord.Forbidden,
-                discord.HTTPException,
-                discord.InvalidArgument,
-            ) as e:
-                print(f"Exception in thread handling: {e}")
-                ctx.send(content="Something went wrong!")
-        else:
-            send_to = ctx.channel
-        args = query.split()
-        if re.search(r"^\d+$", args[0]):
+            )
+        except (
+            discord.Forbidden,
+            discord.HTTPException,
+            discord.InvalidArgument,
+        ) as e:
+            print(f"Exception in thread handling: {e}")
+            await ctx.respond(content="Something went wrong!")
+    else:
+        send_to = ctx.interaction.channel
+    args = query.split()
+    if re.search(r"^\d+$", args[0]):
 
-            try:
-                result = metallum.band_for_id(args[0])
-                if result.id != args[0]:
-                    raise ValueError
-                band = Band(result)
-                await send_to.send(
-                    f"Found a band with ID: '{args[0]}'\n\n{band}"
-                )
+        try:
+            result = metallum.band_for_id(args[0])
+            if result.id != args[0]:
+                raise ValueError
+            band = Band(result)
+            await send_to.send(f"Found a band with ID: '{args[0]}'\n\n{band}")
 
-            except ValueError as v:
-                print(f"ValueError in search: {v}")
-            except (
-                discord.Forbidden,
-                discord.HTTPException,
-                discord.InvalidArgument,
-            ) as e:
-                print(f"Exception sending band_for_id result: {e}")
-                ctx.send(content="Something went wrong!")
+        except ValueError as v:
+            print(f"ValueError in search: {v}")
+        except (
+            discord.Forbidden,
+            discord.HTTPException,
+            discord.InvalidArgument,
+        ) as e:
+            print(f"Exception sending band_for_id result: {e}")
+            await ctx.respond(content="Something went wrong!")
 
 
-client = MyClient()
-client.run(BOT_TOKEN)
+bot.run(BOT_TOKEN)
+
+
+# if __name__ == "__main__":
+#     client = MyClient()
+#     client.run(BOT_TOKEN)
+#     client.bot.run(BOT_TOKEN)
