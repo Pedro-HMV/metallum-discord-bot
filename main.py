@@ -2,6 +2,10 @@ import re
 import logging
 
 # import time
+
+from asyncio import shield as shield
+
+# from time import time
 from typing import NoReturn
 
 import discord
@@ -146,28 +150,35 @@ async def metallum_search(
         default=True,
     ),
 ):
-    if ctx.interaction.channel.type not in DM:
-        try:
-            send_to = await ctx.interaction.channel.create_thread(
-                name=f"/{ctx.command.qualified_name}",
+    print(f"Query: {query}, type: {type(query)}")
+    try:
+        send_to = await shield(
+            ctx.interaction.channel.create_thread(
+                name=f"\\/metallum {query}",
                 type=ct.public_thread,
-                auto_archive_duration=30,
+                auto_archive_duration=60,
             )
-            await send_to.send(
+        )
+        await shield(
+            send_to.send(
                 content=(
-                    f"Band Search: {ctx.command.qualified_name}\nInitiated by:"
+                    f"Band Search: /metallum {query}\nInitiated by:"
                     f" {ctx.author}\n\nStandby for results!  \U0001F916"
                 )
             )
-        except (
-            discord.Forbidden,
-            discord.HTTPException,
-            discord.InvalidArgument,
-        ) as e:
-            print(f"Exception in thread handling: {e}")
-            await ctx.respond(content="Something went wrong!")
-    else:
+        )
+    except (
+        discord.Forbidden,
+        discord.HTTPException,
+        discord.InvalidArgument,
+    ) as e:
+        print(f"Exception in thread handling: {e}")
+        await shield(ctx.respond(content="Something went wrong!"))
         send_to = ctx.interaction.channel
+    except AttributeError as ae:
+        print(f"Thread attribute error: {ae}")
+        send_to = ctx.interaction.channel
+
     args = query.split()
     if re.search(r"^\d+$", args[0]):
 
@@ -176,6 +187,7 @@ async def metallum_search(
             if result.id != args[0]:
                 raise ValueError
             band = Band(result)
+            print(band)
             await send_to.send(f"Found a band with ID: '{args[0]}'\n\n{band}")
 
         except ValueError as v:
@@ -186,7 +198,7 @@ async def metallum_search(
             discord.InvalidArgument,
         ) as e:
             print(f"Exception sending band_for_id result: {e}")
-            await ctx.respond(content="Something went wrong!")
+            await shield(ctx.respond(content="Something went wrong!"))
 
 
 bot.run(BOT_TOKEN)
