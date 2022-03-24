@@ -3,7 +3,7 @@ import logging
 
 # import time
 
-from asyncio import shield as shield
+from asyncio import shield
 
 # from time import time
 from typing import NoReturn
@@ -30,7 +30,13 @@ BOT_TOKEN = config("BOT_TOKEN")
 BASE_URL = "https://metal-archives.com/"
 BAND_SEP = "\n\n" + "*" * 30 + "\n\n"
 DM = [ct.private, ct.group]
-TEST_GUILDS = [879867345475076147]
+TEST_GUILDS = [
+    879867345475076147,
+    683485524950122568,
+    470069814916808704,
+    786414094227603457,
+]
+# RelouinTV, Metallum V, Interzone, Cantindo da Hombridade
 
 
 class Band:
@@ -52,15 +58,17 @@ class Band:
         if albums:
             full_albums = band.albums.search(type="full-length")
             # print("Full albums: " + str(full_albums))
-            string_albums: str = (
+            self.albums: str = (
                 "This band has no full-length albums. Check their page below"
                 " for other releases."
                 if full_albums == []
                 else "\n".join(
-                    [f"({str(a.year)}) {a.title}" for a in full_albums]
+                    [
+                        f"(**{str(a.year)}**) {escape_markdown(a.title)}"
+                        for a in full_albums
+                    ]
                 )
             )
-            self.albums = escape_markdown(string_albums)
         # print(self.albums)
         self.url: str = escape_markdown(BASE_URL + band.url)
         # print(self.url)
@@ -108,14 +116,71 @@ class Band:
 
 
 class Search:
-    def __init__(self, query: str, strict: bool, albums: bool):
+    def __init__(
+        self,
+        query: str,
+        send_to: discord.ApplicationContext.channel,
+        strict: bool = True,
+        albums: bool = True,
+        page_start: int = 0,
+    ):
         self.query = query
+        self.send_to = send_to
         self.strict = strict
         self.albums = albums
+        self.page_start = page_start
 
-    def search(self) -> NoReturn:
-        # args = self.query.split()
-        pass
+    async def search(self) -> NoReturn:
+        await shield(
+            self.send_to.send(
+                "Performing strict search!"
+                if self.strict
+                else (
+                    "Performing advanced search:"
+                    f" {escape_markdown(self.query)}"
+                )
+            )
+        )
+        try:
+            band_list = metallum.band_search(
+                self.query, strict=self.strict, page_start=self.page_start
+            )
+            if not band_list:
+                raise IndexError
+            await shield(
+                self.send_to.send(
+                    f"Found {band_list.result_count} bands!\n\nHere we go!"
+                )
+            )
+            for i, band_result in enumerate(band_list):
+                band = Band(band_result.get(), self.albums)
+                band_pos = f"{i+1+self.page_start}/{band_list.result_count}"
+                print(band)
+                bot_response = "\n\n".join(
+                    [
+                        str(band),
+                        band_pos,
+                    ]
+                )
+                await shield(self.send_to.send(bot_response))
+                if (i + 1) % 200 == 0:
+                    new_search = Search(
+                        self.query,
+                        self.send_to,
+                        self.strict,
+                        self.albums,
+                        self.page_start + 200,
+                    )
+                    await shield(new_search.search())
+                    return
+
+        except IndexError:
+            await shield(
+                self.send_to.send(
+                    "No band was found. Remember, I only know METAL bands!"
+                    " \U0001F918\U0001F916"
+                )
+            )
 
 
 bot = discord.Bot()
@@ -127,9 +192,9 @@ async def on_ready():
     print(f"Running on {[bot.get_guild(int(id)) for id in TEST_GUILDS]}")
 
 
-@bot.slash_command(guild_ids=TEST_GUILDS, name="test")
-async def testing(ctx: discord.ApplicationContext):
-    await ctx.respond("I'm working")
+# @bot.slash_command(guild_ids=TEST_GUILDS, name="test")
+# async def testing(ctx: discord.ApplicationContext):
+#     await ctx.respond("I'm working")
 
 
 @bot.slash_command(guild_ids=TEST_GUILDS, name="metallum")
@@ -139,24 +204,41 @@ async def metallum_search(
     exact: Option(
         bool,
         description=(
-            "Wether the search results should match the exact query."
-            " Default is 'yes'."
+            "Whether the search results should match the exact query."
+            " Default is True."
         ),
         default=True,
     ),
     albums: Option(
         bool,
-        "Wether to display the bands' full-length albums in the results.",
+        "Whether to display the bands' full-length albums in the results."
+        " Default is True.",
         default=True,
     ),
 ):
-    print(f"Query: {query}, type: {type(query)}")
+    try:
+        print(
+            "\n\n"
+            + "*" * 10
+            + f"\n\nSearch by: {ctx.author}\nQuery: {query}\nExact:"
+            f" {exact}\nAlbums: {albums}\nData: {ctx.interaction.data}\n\n"
+            + "*" * 10
+            + "\n\n"
+        )
+    except Exception as e:
+        print(f"Debug exception: {e}")
     try:
         send_to = await shield(
             ctx.interaction.channel.create_thread(
-                name=f"\\/metallum {query}",
+                name=f"\\metallum: {query}",
                 type=ct.public_thread,
                 auto_archive_duration=60,
+            )
+        )
+        await shield(
+            ctx.respond(
+                "Search initiated, please refer to the thread:"
+                f" {send_to.mention}"
             )
         )
         await shield(
@@ -181,7 +263,6 @@ async def metallum_search(
 
     args = query.split()
     if re.search(r"^\d+$", args[0]):
-
         try:
             result = metallum.band_for_id(args[0])
             if result.id != args[0]:
@@ -189,7 +270,6 @@ async def metallum_search(
             band = Band(result)
             print(band)
             await send_to.send(f"Found a band with ID: '{args[0]}'\n\n{band}")
-
         except ValueError as v:
             print(f"ValueError in search: {v}")
         except (
@@ -198,7 +278,8 @@ async def metallum_search(
             discord.InvalidArgument,
         ) as e:
             print(f"Exception sending band_for_id result: {e}")
-            await shield(ctx.respond(content="Something went wrong!"))
+    name_search = Search(query, send_to, exact, albums)
+    await shield(name_search.search())
 
 
 bot.run(BOT_TOKEN)
