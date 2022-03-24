@@ -28,15 +28,53 @@ logger.addHandler(handler)
 
 BOT_TOKEN = config("BOT_TOKEN")
 BASE_URL = "https://metal-archives.com/"
-BAND_SEP = "\n\n" + "*" * 30 + "\n\n"
+PRE_M = "-\n\n"
+SUF_M = "\n\n-"
 DM = [ct.private, ct.group]
-TEST_GUILDS = [
-    879867345475076147,
-    683485524950122568,
-    470069814916808704,
-    786414094227603457,
-]
-# RelouinTV, Metallum V, Interzone, Cantindo da Hombridade
+TEST_GUILDS = [879867345475076147]
+# RelouinTV, Metallum V 683485524950122568,
+# Interzone 470069814916808704, Cantindo da Hombridade 786414094227603457
+
+HELP_TEXT = (
+    escape_markdown(
+        ":metal: :robot: \t:regional_indicator_h: :regional_indicator_a:"
+        " :regional_indicator_i: :regional_indicator_l: :bangbang:\n\nUse the"
+        " command /metallum to perform a search.\n\nParameters:\nquery: the"
+        " text used in the search.\n\nexact: whether to search for the exact"
+        " query or not (more info below)\n\t\tMust be either True or False."
+        " Defaults to True if not included.\n\nalbums: whether to include the"
+        " albums for each band encountered\n\t\tMust be either True or False."
+        " Defaults to True if not included.\n\nIf the first part of the query"
+        " is a number, you may find a band registered under that ID on the"
+        " website (the ID is the number at the end of the band's URL), if"
+        " there's any. The search will then continue to look for bands"
+        " matching the entire query (including that number) in their"
+        " names.\n\nWhen the 'exact' parameter is True, searching for 'black"
+        " sabbath' will only find bands named EXACTLY 'Black Sabbath'"
+        " (case-insensitive).\n\nHowever, when the 'exact' parameter is False,"
+        " the same search will find all bands with BOTH 'black' and 'sabbath'"
+        " in their names, regardless of any other words and in whatever order."
+        " For example: 'Sabbath Black Heretic'.\n\nIn addition to those"
+        " results, if you also want bands that contain EITHER 'black' OR"
+        " 'sabbath' (not necessarily both), you can search for 'black ||"
+        " sabbath' (or 'sabbath || black', for that matter).\n\nNote, however,"
+        " that those words must appear in their entirety in the band's name."
+        " Meaning a 'hell' search won't find 'helloween', for instance.\nBut"
+        " don't worry, you can use asterisks as wildcards: 'hell*', '*hell'"
+        " and '*hell*' are all valid queries. The asterisk means that the word"
+        " can be extended by any amount of characters in that"
+        " direction.\n\nFinally, another thing you can do is exclude words"
+        " from the results: 'black -sabbath' will find bands with the word"
+        " 'black', but exclude those with the word 'sabbath'.\n\nYou can also"
+        " combine all of the above, of course!"
+    )
+    .replace("l\\_i", "l_i")
+    .replace("r\\_", "r_")
+    .replace(" '", ' "')
+    .replace("' ", '" ')
+    .replace("',", '",')
+    .replace("'.", '".')
+)
 
 
 class Band:
@@ -133,11 +171,14 @@ class Search:
     async def search(self) -> NoReturn:
         await shield(
             self.send_to.send(
-                "Performing strict search!"
-                if self.strict
-                else (
-                    "Performing advanced search:"
-                    f" {escape_markdown(self.query)}"
+                PRE_M
+                + (
+                    "Performing strict search!"
+                    if self.strict
+                    else (
+                        "Performing advanced search:"
+                        f" {escape_markdown(self.query)}"
+                    )
                 )
             )
         )
@@ -149,7 +190,8 @@ class Search:
                 raise IndexError
             await shield(
                 self.send_to.send(
-                    f"Found {band_list.result_count} bands!\n\nHere we go!"
+                    f"{PRE_M}Found {band_list.result_count} bands!\n\nHere we"
+                    " go!"
                 )
             )
             for i, band_result in enumerate(band_list):
@@ -162,7 +204,7 @@ class Search:
                         band_pos,
                     ]
                 )
-                await shield(self.send_to.send(bot_response))
+                await shield(self.send_to.send(f"{PRE_M}{bot_response}"))
                 if (i + 1) % 200 == 0:
                     new_search = Search(
                         self.query,
@@ -177,8 +219,8 @@ class Search:
         except IndexError:
             await shield(
                 self.send_to.send(
-                    "No band was found. Remember, I only know METAL bands!"
-                    " \U0001F918\U0001F916"
+                    f"{PRE_M}No band was found. Remember, I only know METAL"
+                    " bands! \U0001F918\U0001F916"
                 )
             )
 
@@ -192,12 +234,25 @@ async def on_ready():
     print(f"Running on {[bot.get_guild(int(id)) for id in TEST_GUILDS]}")
 
 
+@bot.slash_command(
+    guild_ids=TEST_GUILDS,
+    name="helpers",
+    description="Learn how to search!",
+)
+async def helpers(ctx: discord.ApplicationContext):
+    await ctx.respond(HELP_TEXT)
+
+
 # @bot.slash_command(guild_ids=TEST_GUILDS, name="test")
 # async def testing(ctx: discord.ApplicationContext):
 #     await ctx.respond("I'm working")
 
 
-@bot.slash_command(guild_ids=TEST_GUILDS, name="metallum")
+@bot.slash_command(
+    guild_ids=TEST_GUILDS,
+    name="metallum",
+    description="Use /helpers for instructions!",
+)
 async def metallum_search(
     ctx: discord.ApplicationContext,
     query: Option(str, "The search you wanna perform", required=True),
@@ -243,10 +298,8 @@ async def metallum_search(
         )
         await shield(
             send_to.send(
-                content=(
-                    f"Band Search: /metallum {query}\nInitiated by:"
-                    f" {ctx.author}\n\nStandby for results!  \U0001F916"
-                )
+                f"Band Search: /metallum {query}\nInitiated by:"
+                f" {ctx.author}\n\nStandby for results!  \U0001F916"
             )
         )
     except (
@@ -269,7 +322,9 @@ async def metallum_search(
                 raise ValueError
             band = Band(result)
             print(band)
-            await send_to.send(f"Found a band with ID: '{args[0]}'\n\n{band}")
+            await send_to.send(
+                f"{PRE_M}Found a band with ID: '{args[0]}'\n\n{band}"
+            )
         except ValueError as v:
             print(f"ValueError in search: {v}")
         except (
