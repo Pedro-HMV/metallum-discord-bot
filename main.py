@@ -1,11 +1,8 @@
 import re
 import logging
 
-# import time
-
 from asyncio import shield
 
-# from time import time
 from typing import NoReturn
 
 import discord
@@ -28,57 +25,52 @@ logger.addHandler(handler)
 
 BOT_TOKEN = config("BOT_TOKEN")
 BASE_URL = "https://metal-archives.com/"
-PRE_M = "-\n\n"
-SUF_M = "\n\n-"
-DM = [ct.private, ct.group]
-TEST_GUILDS = [879867345475076147]
-# RelouinTV, Metallum V 683485524950122568,
-# Interzone 470069814916808704, Cantindo da Hombridade 786414094227603457
+PRE_M = ":heavy_minus_sign:\n\n"
+SUF_M = "\n\n:heavy_minus_sign:"
 
-HELP_TEXT = (
-    escape_markdown(
-        ":metal: :robot: \t:regional_indicator_h: :regional_indicator_a:"
-        " :regional_indicator_i: :regional_indicator_l: :bangbang:\n\nUse the"
-        " command /metallum to perform a search.\n\nParameters:\nquery: the"
-        " text used in the search.\n\nexact: whether to search for the exact"
-        " query or not (more info below)\n\t\tMust be either True or False."
-        " Defaults to True if not included.\n\nalbums: whether to include the"
-        " albums for each band encountered\n\t\tMust be either True or False."
-        " Defaults to True if not included.\n\nIf the first part of the query"
-        " is a number, you may find a band registered under that ID on the"
-        " website (the ID is the number at the end of the band's URL), if"
-        " there's any. The search will then continue to look for bands"
-        " matching the entire query (including that number) in their"
-        " names.\n\nWhen the 'exact' parameter is True, searching for 'black"
-        " sabbath' will only find bands named EXACTLY 'Black Sabbath'"
-        " (case-insensitive).\n\nHowever, when the 'exact' parameter is False,"
-        " the same search will find all bands with BOTH 'black' and 'sabbath'"
-        " in their names, regardless of any other words and in whatever order."
-        " For example: 'Sabbath Black Heretic'.\n\nIn addition to those"
-        " results, if you also want bands that contain EITHER 'black' OR"
-        " 'sabbath' (not necessarily both), you can search for 'black ||"
-        " sabbath' (or 'sabbath || black', for that matter).\n\nNote, however,"
-        " that those words must appear in their entirety in the band's name."
-        " Meaning a 'hell' search won't find 'helloween', for instance.\nBut"
-        " don't worry, you can use asterisks as wildcards: 'hell*', '*hell'"
-        " and '*hell*' are all valid queries. The asterisk means that the word"
-        " can be extended by any amount of characters in that"
-        " direction.\n\nFinally, another thing you can do is exclude words"
-        " from the results: 'black -sabbath' will find bands with the word"
-        " 'black', but exclude those with the word 'sabbath'.\n\nYou can also"
-        " combine all of the above, of course!"
-    )
-    .replace("l\\_i", "l_i")
-    .replace("r\\_", "r_")
-    .replace(" '", ' "')
-    .replace("' ", '" ')
-    .replace("',", '",')
-    .replace("'.", '".')
+
+HELP_STANDARD = (
+    ":regional_indicator_h: :regional_indicator_a: :regional_indicator_i:"
+    " :regional_indicator_l: :bangbang: \t:metal: :robot:\n\nUse the command"
+    " `/metallum` to perform a search.\n\nParameters:\n__query:__ the text"
+    " used in the search.\n\n__exact:__ whether to search for the exact query"
+    " or not (more info below). Must be either **True** or"
+    " **False**.\n\n__**STANDARD SEARCH**__:\n\nWhen the __exact__ parameter"
+    " is **True**, searching for 'black sabbath' will only find bands named"
+    " EXACTLY 'Black Sabbath' (case-insensitive, though).\n\nHowever, when"
+    " __exact__ is **False**, the same search will find all bands with BOTH"
+    " 'black' and 'sabbath' in their names, regardless of any other words and"
+    " in whatever order, like the band 'Sabbath Black Heretic'.\n\nIf the"
+    " first part of the __query__ is a number, you may find a band registered"
+    " under that __ID__ on the website, if there's any (the ID is the number"
+    " at the end of the band's URL). The search will then continue to look for"
+    " bands matching the entire query (including that number) in their"
+    " names.\n\nFor example: `/metallum query: 7 sins exact: True` would give"
+    " you the band with ID '7', which is 'Entombed' and then search for bands"
+    " called '7 Sins' (exact match, in this case).\nNote that searching for"
+    " '13' will give you both the band with ID '13' and the band called"
+    " '13'.\n\n"
+)
+
+HELP_ADVANCED = (
+    "__**ADVANCED SEARCH**__:\n\nThe options below only work when"
+    " __exact__ is set to **False**...\n\nIn addition to those results"
+    " describe above, if you also want bands that contain EITHER 'black' OR"
+    " 'sabbath' (not necessarily both), you can search for `black || sabbath`"
+    " (or `sabbath || black`, for that matter).\n\nNote, however, that those"
+    " words must appear in their entirety in the band's name. Meaning a 'hell'"
+    " search won't find 'helloween', for instance.\nBut don't worry, you can"
+    " use __asterisks__ as wildcards: `hell*`, `*hell` and `*hell*` are all"
+    " valid queries. The asterisk means that the word can be extended by any"
+    " amount of characters **in that direction**.\n\nFinally, another thing"
+    " you can do is exclude words from the results: `black -sabbath` will find"
+    " bands with the word 'black', but exclude those with the word"
+    " 'sabbath'.\n\nYou can also combine all of the above, of course!"
 )
 
 
 class Band:
-    def __init__(self, band: metallum.Band, albums=True):
+    def __init__(self, band: metallum.Band, albums: bool = True):
         escaped_band = self.escape_band(band)
         self.name: str = escaped_band["name"]
         # print(self.name)
@@ -92,7 +84,7 @@ class Band:
         # print(self.country)
         self.formed_in: str = escaped_band["formed_in"]
         # print(self.formed_in)
-        self.themes = escaped_band["themes"]
+        self.themes: str = escaped_band["themes"]
         if albums:
             full_albums = band.albums.search(type="full-length")
             # print("Full albums: " + str(full_albums))
@@ -102,7 +94,7 @@ class Band:
                 if full_albums == []
                 else "\n".join(
                     [
-                        f"(**{str(a.year)}**) {escape_markdown(a.title)}"
+                        f"**({str(a.year)})** {escape_markdown(a.title)}"
                         for a in full_albums
                     ]
                 )
@@ -113,20 +105,20 @@ class Band:
         self._info: str = "\n\n".join(
             [
                 f"__**{self.name}**__",
-                f"_GENRES_: {self.genres}",
-                f"_LOCATION_: {self.location}, {self.country}",
-                f"_FORMED IN_: {self.formed_in}",
-                f"_STATUS_: {self.status}",
-                f"_THEMES_: {self.themes}",
-                (f"_ALBUMS_: \n{self.albums}" if albums else ""),
-                f"_PAGE_: {self.url}",
+                f"__*GENRES*__: {self.genres}",
+                f"__*LOCATION*__: {self.location}, {self.country}",
+                f"__*FORMED IN*__: {self.formed_in}",
+                f"__*STATUS*__: {self.status}",
+                f"__*THEMES*__: {self.themes}",
+                (f"__*ALBUMS*__: \n{self.albums}" if albums else ""),
+                f"__*PAGE*__: {self.url}",
             ]
         ).replace("\n\n\n\n", "\n\n")
 
     def __str__(self):
         return self._info
 
-    def escape_band(self, band):
+    def escape_band(self, band: metallum.Band):
         escape_list = list(
             map(
                 lambda x: escape_markdown(x),
@@ -190,8 +182,8 @@ class Search:
                 raise IndexError
             await shield(
                 self.send_to.send(
-                    f"{PRE_M}Found {band_list.result_count} bands!\n\nHere we"
-                    " go!"
+                    f"{PRE_M}Found {band_list.result_count} band(s)!\n\nHere"
+                    " we go!"
                 )
             )
             for i, band_result in enumerate(band_list):
@@ -231,25 +223,18 @@ bot = discord.Bot()
 @bot.event
 async def on_ready():
     print("Logged on as {0}!".format(bot.user))
-    print(f"Running on {[bot.get_guild(int(id)) for id in TEST_GUILDS]}")
 
 
 @bot.slash_command(
-    guild_ids=TEST_GUILDS,
-    name="helpers",
+    name="helper",
     description="Learn how to search!",
 )
-async def helpers(ctx: discord.ApplicationContext):
-    await ctx.respond(HELP_TEXT)
-
-
-# @bot.slash_command(guild_ids=TEST_GUILDS, name="test")
-# async def testing(ctx: discord.ApplicationContext):
-#     await ctx.respond("I'm working")
+async def helper(ctx: discord.ApplicationContext):
+    await shield(ctx.respond(HELP_STANDARD))
+    await shield(ctx.respond(HELP_ADVANCED))
 
 
 @bot.slash_command(
-    guild_ids=TEST_GUILDS,
     name="metallum",
     description="Use /helpers for instructions!",
 )
@@ -260,15 +245,8 @@ async def metallum_search(
         bool,
         description=(
             "Whether the search results should match the exact query."
-            " Default is True."
+            " True or False."
         ),
-        default=True,
-    ),
-    albums: Option(
-        bool,
-        "Whether to display the bands' full-length albums in the results."
-        " Default is True.",
-        default=True,
     ),
 ):
     try:
@@ -276,7 +254,7 @@ async def metallum_search(
             "\n\n"
             + "*" * 10
             + f"\n\nSearch by: {ctx.author}\nQuery: {query}\nExact:"
-            f" {exact}\nAlbums: {albums}\nData: {ctx.interaction.data}\n\n"
+            f" {exact}\nData: {ctx.interaction.data}\n\n"
             + "*" * 10
             + "\n\n"
         )
@@ -285,7 +263,7 @@ async def metallum_search(
     try:
         send_to = await shield(
             ctx.interaction.channel.create_thread(
-                name=f"\\metallum: {query}",
+                name=f"Metallum search, query='{query}', exact={exact}",
                 type=ct.public_thread,
                 auto_archive_duration=60,
             )
@@ -298,8 +276,8 @@ async def metallum_search(
         )
         await shield(
             send_to.send(
-                f"Band Search: /metallum {query}\nInitiated by:"
-                f" {ctx.author}\n\nStandby for results!  \U0001F916"
+                f"{ctx.author} used: `/metallum query: '{query}'"
+                f" exact: '{exact}'` \n\nStandby for results!  \U0001F916"
             )
         )
     except (
@@ -308,11 +286,12 @@ async def metallum_search(
         discord.InvalidArgument,
     ) as e:
         print(f"Exception in thread handling: {e}")
-        await shield(ctx.respond(content="Something went wrong!"))
+        await shield(ctx.respond("Something went wrong!"))
         send_to = ctx.interaction.channel
     except AttributeError as ae:
         print(f"Thread attribute error: {ae}")
         send_to = ctx.interaction.channel
+        await shield(ctx.respond("Search initialized!"))
 
     args = query.split()
     if re.search(r"^\d+$", args[0]):
@@ -333,14 +312,19 @@ async def metallum_search(
             discord.InvalidArgument,
         ) as e:
             print(f"Exception sending band_for_id result: {e}")
-    name_search = Search(query, send_to, exact, albums)
+    name_search = Search(query, send_to, exact)
     await shield(name_search.search())
+    try:
+        await shield(
+            ctx.interaction.edit_original_message(
+                content=(
+                    "Search **completed**, please refer to the thread:"
+                    f" {send_to.mention}"
+                )
+            )
+        )
+    except Exception as e:
+        print(f"Failed to edit response: {e}")
 
 
 bot.run(BOT_TOKEN)
-
-
-# if __name__ == "__main__":
-#     client = MyClient()
-#     client.run(BOT_TOKEN)
-#     client.bot.run(BOT_TOKEN)
