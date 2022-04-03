@@ -1,7 +1,9 @@
 # Metallum Informant Discord
 This is the Discord version of the Metallum Informant bot.
 
-A bot which queries the [Encyclopaedia Metallum](www.metal-archives.com) for metal bands and shows the results to the user.
+A bot that queries the [Encyclopaedia Metallum](www.metal-archives.com) for metal bands and shows the results to the user.
+
+Also available for Telegram: https://github.com/Pedro-HMV/Metallum-Telegram-Bot.
 
 ## Third-party packages
 - [Pycord](https://github.com/Pycord-Development/pycord), a Python API wrapper for Discord.
