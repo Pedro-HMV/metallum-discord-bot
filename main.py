@@ -244,10 +244,8 @@ async def metallum_search(
     query: Option(str, "The search you wanna perform", required=True),
     exact: Option(
         bool,
-        description=(
-            "Whether the search results should match the exact query."
-            " True or False."
-        ),
+        "Whether the search results should match the exact query",
+        required=True,
     ),
 ):
     try:
@@ -301,7 +299,6 @@ async def metallum_search(
             if result.id != args[0]:
                 raise ValueError
             band = Band(result)
-            print(band)
             await send_to.send(
                 f"{PRE_M}Found a band with ID: '{args[0]}'\n\n{band}"
             )
@@ -319,7 +316,7 @@ async def metallum_search(
         await shield(
             ctx.interaction.edit_original_message(
                 content=(
-                    "Search **completed**, please refer to the thread:"
+                    "Search **COMPLETED**, please refer to the thread:"
                     f" {send_to.mention}"
                 )
             )
