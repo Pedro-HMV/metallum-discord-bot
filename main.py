@@ -1,3 +1,4 @@
+import os
 import re
 import logging
 
@@ -11,7 +12,6 @@ from discord import ChannelType as ct, Option
 from discord.utils import escape_markdown
 
 import metallum
-from decouple import config
 
 logger = logging.getLogger("discord")
 logger.setLevel(logging.DEBUG)
@@ -23,7 +23,7 @@ handler.setFormatter(
 )
 logger.addHandler(handler)
 
-BOT_TOKEN = config("BOT_TOKEN")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 BASE_URL = "https://metal-archives.com/"
 PRE_M = ":heavy_minus_sign:\n\n"
 SUF_M = "\n\n:heavy_minus_sign:"
@@ -182,8 +182,9 @@ class Search:
                 raise IndexError
             await shield(
                 self.send_to.send(
-                    f"{PRE_M}Found {band_list.result_count} band(s)!\n\nHere"
-                    " we go!"
+                    f"{PRE_M}Found {band_list.result_count} band"
+                    + ("s" if band_list.result_count > 1 else "")
+                    + "!\n\nHere we go!"
                 )
             )
             for i, band_result in enumerate(band_list):
@@ -327,4 +328,9 @@ async def metallum_search(
         print(f"Failed to edit response: {e}")
 
 
-bot.run(BOT_TOKEN)
+def main():
+    bot.run(BOT_TOKEN)
+
+
+if __name__ == "__main__":
+    main()
