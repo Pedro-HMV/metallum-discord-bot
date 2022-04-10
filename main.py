@@ -28,7 +28,6 @@ BASE_URL = "https://metal-archives.com/"
 PRE_M = ":heavy_minus_sign:\n\n"
 SUF_M = "\n\n:heavy_minus_sign:"
 
-
 HELP_STANDARD = (
     ":regional_indicator_h: :regional_indicator_a: :regional_indicator_i:"
     " :regional_indicator_l: :bangbang: \t:metal: :robot:\n\nUse the command"
@@ -70,7 +69,7 @@ HELP_ADVANCED = (
 
 
 class Band:
-    def __init__(self, band: metallum.Band, albums: bool = True):
+    def __init__(self, band: metallum.Band):
         escaped_band = self.escape_band(band)
         self.name: str = escaped_band["name"]
         # print(self.name)
@@ -85,20 +84,19 @@ class Band:
         self.formed_in: str = escaped_band["formed_in"]
         # print(self.formed_in)
         self.themes: str = escaped_band["themes"]
-        if albums:
-            full_albums = band.albums.search(type="full-length")
-            # print("Full albums: " + str(full_albums))
-            self.albums: str = (
-                "This band has no full-length albums. Check their page below"
-                " for other releases."
-                if full_albums == []
-                else "\n".join(
-                    [
-                        f"**({str(a.year)})** {escape_markdown(a.title)}"
-                        for a in full_albums
-                    ]
-                )
+        full_albums = band.albums.search(type="full-length")
+        # print("Full albums: " + str(full_albums))
+        self.albums: str = (
+            "This band has no full-length albums. Check their page below"
+            " for other releases."
+            if full_albums == []
+            else "\n".join(
+                [
+                    f"**({str(a.year)})** {escape_markdown(a.title)}"
+                    for a in full_albums
+                ]
             )
+        )
         # print(self.albums)
         self.url: str = escape_markdown(BASE_URL + band.url)
         # print(self.url)
@@ -110,7 +108,7 @@ class Band:
                 f"__*FORMED IN*__: {self.formed_in}",
                 f"__*STATUS*__: {self.status}",
                 f"__*THEMES*__: {self.themes}",
-                (f"__*ALBUMS*__: \n{self.albums}" if albums else ""),
+                f"__*ALBUMS*__: \n{self.albums}",
                 f"__*PAGE*__: {self.url}",
             ]
         ).replace("\n\n\n\n", "\n\n")
