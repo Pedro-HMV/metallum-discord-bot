@@ -151,46 +151,45 @@ class Search:
         query: str,
         send_to: discord.ApplicationContext.channel,
         strict: bool = True,
-        albums: bool = True,
         page_start: int = 0,
     ):
         self.query = query
         self.send_to = send_to
         self.strict = strict
-        self.albums = albums
         self.page_start = page_start
 
     async def search(self) -> NoReturn:
-        await shield(
-            self.send_to.send(
-                PRE_M
-                + (
-                    "Performing strict search!"
-                    if self.strict
-                    else (
-                        "Performing advanced search:"
-                        f" {escape_markdown(self.query)}"
+        if self.page_start == 0:
+            await shield(
+                self.send_to.send(
+                    PRE_M
+                    + (
+                        "Performing strict search!"
+                        if self.strict
+                        else (
+                            "Performing advanced search:"
+                            f" {escape_markdown(self.query)}"
+                        )
                     )
                 )
             )
-        )
         try:
             band_list = metallum.band_search(
                 self.query, strict=self.strict, page_start=self.page_start
             )
             if not band_list:
                 raise IndexError
-            await shield(
-                self.send_to.send(
-                    f"{PRE_M}Found {band_list.result_count} band"
-                    + ("s" if band_list.result_count > 1 else "")
-                    + "!\n\nHere we go!"
+            if self.page_start == 0:
+                await shield(
+                    self.send_to.send(
+                        f"{PRE_M}Found {band_list.result_count} band"
+                        + ("s" if band_list.result_count > 1 else "")
+                        + "!\n\nHere we go!"
+                    )
                 )
-            )
             for i, band_result in enumerate(band_list):
-                band = Band(band_result.get(), self.albums)
+                band = Band(band_result.get())
                 band_pos = f"{i+1+self.page_start}/{band_list.result_count}"
-                print(band)
                 bot_response = "\n\n".join(
                     [
                         str(band),
@@ -203,11 +202,11 @@ class Search:
                         self.query,
                         self.send_to,
                         self.strict,
-                        self.albums,
                         self.page_start + 200,
                     )
                     await shield(new_search.search())
                     return
+            await shield(self.send_to.send(f"{PRE_M}Search completed!"))
 
         except IndexError:
             await shield(
